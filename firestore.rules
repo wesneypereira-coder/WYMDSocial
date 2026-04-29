@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common helpers
+    function isSignedIn() { return request.auth != null; }
+    function isEmailVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isAdmin() { return isSignedIn() && request.auth.token.email == 'wesneypereira@gmail.com' && isEmailVerified(); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- Users ---
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.email is string && data.email.size() <= 100 &&
+               data.displayName is string && data.displayName.size() <= 100 &&
+               data.createdAt is timestamp;
+      }
+      
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
+      allow update: if isOwner(userId) && isValidUser(incoming()) && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL']);
+    }
+
+    // --- Posts ---
+    match /posts/{postId} {
+      function isValidPost(data) {
+        return data.ownerId is string && data.ownerId.size() <= 128 &&
+               data.imageUrl is string && data.imageUrl.size() <= 1000 &&
+               data.caption is string && data.caption.size() <= 2000 &&
+               data.createdAt is timestamp &&
+               data.likesCount is number &&
+               data.commentsCount is number;
+      }
+
+      // PUBLIC READ ACCESS
+      allow read: if true;
+      
+      // Only the admin can create posts
+      allow create: if isAdmin() && isValidPost(incoming()) && 
+                    incoming().ownerId == request.auth.uid &&
+                    incoming().createdAt == request.time &&
+                    incoming().likesCount == 0 &&
+                    incoming().commentsCount == 0;
+      
+      allow update: if (isAdmin() && isValidPost(incoming()) && incoming().ownerId == existing().ownerId) ||
+                    (isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['likesCount', 'commentsCount']));
+      
+      allow delete: if isAdmin();
+
+      // --- Likes ---
+      match /likes/{userId} {
+        function isValidLike(data) {
+          return data.userId == userId && data.postId == postId && data.createdAt is timestamp;
+        }
+        allow read: if true; // PUBLIC READ ACCESS
+        allow create: if isOwner(userId) && isValidLike(incoming()) && incoming().createdAt == request.time;
+        allow delete: if isOwner(userId);
+      }
+
+      // --- Comments ---
+      match /comments/{commentId} {
+        function isValidComment(data) {
+          return data.userId == request.auth.uid && 
+                 data.postId == postId && 
+                 data.content is string && data.content.size() <= 500 &&
+                 data.createdAt is timestamp;
+        }
+        allow read: if true; // PUBLIC READ ACCESS
+        allow create: if isSignedIn() && isValidComment(incoming()) && incoming().createdAt == request.time;
+        allow delete: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      }
+    }
+  }
+}

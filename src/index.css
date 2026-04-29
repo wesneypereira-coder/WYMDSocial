@@ -1,0 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,100..900;1,100..900&family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Exo 2", sans-serif;
+  --color-primary: #1616de;
+  --color-accent: #DF7A16;
+  --color-success: #7ADF16;
+  --color-app-bg: #e6e6e6;
+  --color-card-bg: #ffffff;
+  --color-dark: #1a1a1a;
+}
+
+@layer base {
+  body {
+    @apply bg-app-bg text-dark font-sans antialiased;
+  }
+}
+
+/* Estilo Moderno de Cartão */
+.tech-card {
+  @apply bg-white rounded-3xl overflow-hidden transition-all duration-300 border border-black/5;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+}
+
+.tech-card:hover {
+  @apply shadow-xl shadow-primary/5 -translate-y-1;
+}
+
+/* Botões Modernos */
+.tech-btn {
+  @apply px-6 py-3 rounded-2xl font-bold transition-all duration-200 flex items-center justify-center gap-2 active:scale-95;
+}
+
+.tech-btn-primary {
+  @apply bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/20;
+}
+
+.tech-btn-accent {
+  @apply bg-accent text-white hover:bg-accent/90 shadow-lg shadow-accent/20;
+}
+
+.tech-btn-outline {
+  @apply border border-zinc-200 bg-white text-dark hover:bg-zinc-50;
+}
+
+.tech-input {
+  @apply w-full p-4 rounded-2xl border border-zinc-200 bg-white text-dark placeholder:text-zinc-400 focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all;
+}
+
+.glass-header {
+  @apply sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-zinc-100;
+}
+
+.logo {
+  @apply font-display font-black text-2xl tracking-tighter flex items-center gap-1 uppercase;
+}
+
+.logo span {
+  @apply text-accent italic;
+}
+
+.logo b {
+  @apply text-primary font-black;
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-zinc-300 rounded-full hover:bg-zinc-400;
+}
