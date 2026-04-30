@@ -4,6 +4,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { X, Camera, UploadCloud, Plus, Trash2, Image as ImageIcon, Film } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MediaItem } from '../types';
+import { handleFirestoreError, OperationType } from '../lib/error-handler';
 
 export default function CreatePost({ onClose }: { onClose: () => void }) {
   const [media, setMedia] = useState<MediaItem[]>([{ url: '', type: 'image' }]);
@@ -47,8 +48,7 @@ export default function CreatePost({ onClose }: { onClose: () => void }) {
       });
       onClose();
     } catch (error) {
-      console.error("Erro ao criar postagem:", error);
-      alert('Erro ao criar postagem.');
+      handleFirestoreError(error, OperationType.CREATE, 'posts');
     } finally {
       setLoading(false);
     }

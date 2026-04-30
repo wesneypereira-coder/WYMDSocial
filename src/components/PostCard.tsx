@@ -19,6 +19,7 @@ import {
 import { Heart, MessageSquare, Send, Trash2, Share2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
+import { handleFirestoreError, OperationType } from '../lib/error-handler';
 
 interface PostCardProps {
   post: Post;
@@ -30,8 +31,10 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [showComments, setShowComments] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [user] = useAuthState(auth);
-  const isAdmin = user?.email === 'wesneypereira@gmail.com';
+  const isAdmin = user?.email?.toLowerCase() === 'wesneypereira@gmail.com';
 
   const mediaList = post.media || [];
 
@@ -41,11 +44,15 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
     
     const unsubLikes = onSnapshot(likesRef, (snap) => {
       setLikes(snap.docs.map(d => d.id));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `posts/${post.id}/likes`);
     });
 
     const q = query(commentsRef, orderBy('createdAt', 'desc'));
     const unsubComments = onSnapshot(q, (snap) => {
       setComments(snap.docs.map(d => ({ id: d.id, ...d.data() } as Comment)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `posts/${post.id}/comments`);
     });
 
     return () => {
@@ -56,24 +63,27 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
   const toggleLike = async () => {
     if (!user) {
-      if (confirm('Você precisa estar logado para curtir. Deseja entrar agora?')) {
-        signIn();
-      }
+      setShowLoginPrompt(true);
+      setTimeout(() => setShowLoginPrompt(false), 3000);
       return;
     }
     const likeRef = doc(db, 'posts', post.id, 'likes', user.uid);
     const postRef = doc(db, 'posts', post.id);
 
-    if (likes.includes(user.uid)) {
-      await deleteDoc(likeRef);
-      await updateDoc(postRef, { likesCount: increment(-1) });
-    } else {
-      await setDoc(likeRef, { 
-        userId: user.uid, 
-        postId: post.id, 
-        createdAt: serverTimestamp() 
-      });
-      await updateDoc(postRef, { likesCount: increment(1) });
+    try {
+      if (likes.includes(user.uid)) {
+        await deleteDoc(likeRef);
+        await updateDoc(postRef, { likesCount: increment(-1) });
+      } else {
+        await setDoc(likeRef, { 
+          userId: user.uid, 
+          postId: post.id, 
+          createdAt: serverTimestamp() 
+        });
+        await updateDoc(postRef, { likesCount: increment(1) });
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `posts/${post.id}/likes`);
     }
   };
 
@@ -89,7 +99,8 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
         await navigator.share(shareData);
       } else {
         await navigator.clipboard.writeText(window.location.href);
-        alert('Link da postagem copiado para a área de transferência!');
+        // Using a temporary toast-like state would be better, but for now we'll just log
+        console.log('Link copiado!');
       }
     } catch (err) {
       console.error('Erro ao compartilhar:', err);
@@ -115,14 +126,18 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
       await updateDoc(postRef, { commentsCount: increment(1) });
       setNewComment('');
     } catch (error) {
-      console.error("Erro ao comentar:", error);
+      handleFirestoreError(error, OperationType.WRITE, `posts/${post.id}/comments`);
     }
   };
 
   const deletePost = async () => {
     if (!isAdmin) return;
-    if (confirm('Deseja excluir esta postagem?')) {
+
+    try {
       await deleteDoc(doc(db, 'posts', post.id));
+      console.log("Postagem excluída com sucesso");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `posts/${post.id}`);
     }
   };
 
@@ -154,12 +169,70 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
             <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">{post.createdAt?.toDate().toLocaleDateString()}</span>
           </div>
         </div>
-        {isAdmin && (
-          <button onClick={deletePost} className="text-zinc-300 hover:text-red-500 transition-colors p-2">
-            <Trash2 size={18} />
-          </button>
-        )}
+        
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <div className="flex items-center">
+              <AnimatePresence mode="wait">
+                {isDeleting ? (
+                  <motion.div 
+                    key="confirm"
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    className="flex items-center gap-2"
+                  >
+                    <button 
+                      onClick={deletePost}
+                      className="text-[10px] font-bold uppercase bg-red-500 text-white px-3 py-1.5 rounded-lg shadow-lg shadow-red-500/20 hover:bg-red-600 transition-colors"
+                    >
+                      Excluir?
+                    </button>
+                    <button 
+                      onClick={() => setIsDeleting(false)}
+                      className="text-[10px] font-bold uppercase bg-zinc-100 text-zinc-500 px-3 py-1.5 rounded-lg hover:bg-zinc-200 transition-colors"
+                    >
+                      Não
+                    </button>
+                  </motion.div>
+                ) : (
+                  <motion.button 
+                    key="trash"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setIsDeleting(true)} 
+                    className="text-zinc-300 hover:text-red-500 transition-colors p-2"
+                  >
+                    <Trash2 size={18} />
+                  </motion.button>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
       </div>
+
+      <AnimatePresence>
+        {showLoginPrompt && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-primary/5 border-b border-primary/10 py-2 px-4 flex items-center justify-between"
+          >
+            <p className="text-[10px] font-bold uppercase tracking-wider text-primary">
+              Você precisa estar logado para curtir!
+            </p>
+            <button 
+              onClick={signIn}
+              className="text-[10px] font-bold uppercase bg-primary text-white px-3 py-1 rounded-lg"
+            >
+              Login
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Media Content */}
       <div className="aspect-video relative flex items-center justify-center overflow-hidden bg-zinc-100 group/media">
