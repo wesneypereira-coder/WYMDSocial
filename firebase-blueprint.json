@@ -15,18 +15,27 @@
     },
     "Post": {
       "title": "Post",
-      "description": "A photo post shared by the owner",
+      "description": "A photo or video post shared by the owner",
       "type": "object",
       "properties": {
         "ownerId": { "type": "string" },
         "ownerEmail": { "type": "string" },
-        "imageUrl": { "type": "string" },
+        "media": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "url": { "type": "string" },
+              "type": { "type": "string", "enum": ["image", "video"] }
+            }
+          }
+        },
         "caption": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "likesCount": { "type": "number" },
         "commentsCount": { "type": "number" }
       },
-      "required": ["ownerId", "imageUrl", "createdAt"]
+      "required": ["ownerId", "media", "createdAt"]
     },
     "Like": {
       "title": "Like",

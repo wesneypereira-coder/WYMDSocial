@@ -8,11 +8,16 @@ export interface UserProfile {
   createdAt: Timestamp;
 }
 
+export interface MediaItem {
+  url: string;
+  type: 'image' | 'video';
+}
+
 export interface Post {
   id: string;
   ownerId: string;
   ownerEmail: string;
-  imageUrl: string;
+  media: MediaItem[];
   caption: string;
   createdAt: Timestamp;
   likesCount: number;

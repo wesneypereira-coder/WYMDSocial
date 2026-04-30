@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth, signIn } from '../lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { Post, Comment } from '../types';
+import { Post, Comment, MediaItem } from '../types';
 import { 
   collection, 
   query, 
@@ -16,7 +16,7 @@ import {
   orderBy,
   serverTimestamp 
 } from 'firebase/firestore';
-import { Heart, MessageSquare, Send, Trash2, Share2 } from 'lucide-react';
+import { Heart, MessageSquare, Send, Trash2, Share2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 
@@ -29,8 +29,11 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [showComments, setShowComments] = useState(false);
   const [newComment, setNewComment] = useState('');
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [user] = useAuthState(auth);
   const isAdmin = user?.email === 'wesneypereira@gmail.com';
+
+  const mediaList = post.media || [];
 
   useEffect(() => {
     const likesRef = collection(db, 'posts', post.id, 'likes');
@@ -123,6 +126,14 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
     }
   };
 
+  const nextMedia = () => {
+    setCurrentMediaIndex((prev) => (prev + 1) % mediaList.length);
+  };
+
+  const prevMedia = () => {
+    setCurrentMediaIndex((prev) => (prev - 1 + mediaList.length) % mediaList.length);
+  };
+
   const isLiked = user && likes.includes(user.uid);
 
   return (
@@ -150,14 +161,74 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
         )}
       </div>
 
-      {/* Image */}
-      <div className="aspect-video flex items-center justify-center overflow-hidden bg-zinc-100">
-        <img 
-          src={post.imageUrl} 
-          alt={post.caption} 
-          className="w-full h-full object-cover"
-          referrerPolicy="no-referrer"
-        />
+      {/* Media Content */}
+      <div className="aspect-video relative flex items-center justify-center overflow-hidden bg-zinc-100 group/media">
+        <AnimatePresence mode="wait">
+          {mediaList.length > 0 && (
+            <motion.div 
+              key={currentMediaIndex}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="w-full h-full"
+            >
+              {mediaList[currentMediaIndex].type === 'image' ? (
+                <img 
+                  src={mediaList[currentMediaIndex].url} 
+                  alt={post.caption} 
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <video 
+                  src={mediaList[currentMediaIndex].url} 
+                  className="w-full h-full object-cover"
+                  controls
+                  playsInline
+                />
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Media Navigation */}
+        {mediaList.length > 1 && (
+          <>
+            <button 
+              onClick={prevMedia}
+              className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/80 backdrop-blur-md rounded-full text-dark opacity-0 group-hover/media:opacity-100 transition-opacity hover:bg-white"
+            >
+              <ChevronLeft size={24} />
+            </button>
+            <button 
+              onClick={nextMedia}
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/80 backdrop-blur-md rounded-full text-dark opacity-0 group-hover/media:opacity-100 transition-opacity hover:bg-white"
+            >
+              <ChevronRight size={24} />
+            </button>
+            
+            {/* Indicators */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+              {mediaList.map((_, i) => (
+                <div 
+                  key={i}
+                  className={cn(
+                    "w-1.5 h-1.5 rounded-full transition-all",
+                    currentMediaIndex === i ? "bg-white w-4" : "bg-white/40"
+                  )}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Media Type Badge */}
+        {mediaList.length > 0 && (
+          <div className="absolute top-4 right-4 bg-app-bg/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-dark">
+            {mediaList[currentMediaIndex].type === 'image' ? 'IMG' : 'VIDEO'} 
+            {mediaList.length > 1 && ` • ${currentMediaIndex + 1}/${mediaList.length}`}
+          </div>
+        )}
       </div>
 
       {/* Actions */}

@@ -36,7 +36,7 @@ service cloud.firestore {
     match /posts/{postId} {
       function isValidPost(data) {
         return data.ownerId is string && data.ownerId.size() <= 128 &&
-               data.imageUrl is string && data.imageUrl.size() <= 1000 &&
+               data.media is list && data.media.size() >= 1 && data.media.size() <= 10 &&
                data.caption is string && data.caption.size() <= 2000 &&
                data.createdAt is timestamp &&
                data.likesCount is number &&
