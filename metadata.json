@@ -1,6 +1,6 @@
 {
-  "name": "WYMDTEC Social",
-  "description": "Uma plataforma social exclusiva da WYMDTEC para compartilhamento de fotos e interação tech.",
+  "name": "Social",
+  "description": "Uma plataforma social para compartilhamento de mídia e interação tecnológica.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

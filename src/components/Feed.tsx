@@ -44,7 +44,7 @@ export default function Feed() {
     return (
       <div className="tech-card p-16 text-center bg-zinc-900/30 border-dashed border-zinc-800">
         <h2 className="text-2xl font-display font-black uppercase mb-4 tracking-tight">Nenhuma transmissão ativa</h2>
-        <p className="text-zinc-500 max-w-sm mx-auto">Aguarde por novas atualizações tecnológicas criptografadas da WYMDTEC.</p>
+        <p className="text-zinc-500 max-w-sm mx-auto">Aguarde por novas atualizações tecnológicas criptografadas.</p>
       </div>
     );
   }

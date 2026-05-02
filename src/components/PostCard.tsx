@@ -89,7 +89,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
   const handleShare = async () => {
     const shareData = {
-      title: 'WYMD Social',
+      title: 'Social',
       text: post.caption,
       url: window.location.href,
     };
@@ -165,7 +165,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
             Adm
           </div>
           <div>
-            <h3 className="font-bold text-sm leading-tight text-dark">WYMDTEC Owner</h3>
+            <h3 className="font-bold text-sm leading-tight text-dark">Administrador</h3>
             <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">{post.createdAt?.toDate().toLocaleDateString()}</span>
           </div>
         </div>

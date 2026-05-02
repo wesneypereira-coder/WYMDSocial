@@ -2,6 +2,7 @@ import { auth, signIn, logout } from '../lib/firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { LogIn, LogOut, PlusSquare } from 'lucide-react';
 import { motion } from 'motion/react';
+import { Logo } from './Logo';
 
 export default function Header({ onOpenCreate }: { onOpenCreate: () => void }) {
   const [user] = useAuthState(auth);
@@ -13,9 +14,10 @@ export default function Header({ onOpenCreate }: { onOpenCreate: () => void }) {
         <motion.div 
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
-          className="logo text-3xl"
+          className="flex items-center gap-2"
         >
-          <b>WYMD</b><span>Social</span>
+          <Logo className="h-6 md:h-7" />
+          <span className="logo text-xl font-display uppercase tracking-tight text-accent">Social</span>
         </motion.div>
 
         <div className="flex items-center gap-4">

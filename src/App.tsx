@@ -8,6 +8,8 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { ShieldCheck, UserCircle, LogIn, PlusSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+import { Logo } from './components/Logo';
+
 export default function App() {
   const [user, loading] = useAuthState(auth);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -35,9 +37,14 @@ export default function App() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-app-bg font-sans">
         <div className="flex flex-col items-center">
-          <div className="logo text-6xl mb-8 animate-pulse">
-            WYMD<span className="gradient-text uppercase">TEC</span>
-          </div>
+          <motion.div 
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="flex flex-col items-center gap-4 mb-8"
+          >
+            <Logo className="h-14" />
+            <div className="logo text-xl tracking-widest text-zinc-300">CARREGANDO</div>
+          </motion.div>
           <div className="w-16 h-16 border-4 border-zinc-800 border-t-primary rounded-full animate-spin"></div>
         </div>
       </div>
@@ -63,7 +70,7 @@ export default function App() {
                 ACOMPANHE A <span className="text-accent italic">INOVAÇÃO</span>
               </h1>
               <p className="text-zinc-500 text-base mb-8 font-medium leading-relaxed max-w-xl mx-auto uppercase tracking-wide">
-                Acesse com sua conta para interagir e comentar nas postagens da <span className="text-primary font-black">WYMDTEC</span>.
+                Acesse com sua conta para interagir e comentar nas postagens.
               </p>
               <button onClick={signIn} className="tech-btn tech-btn-primary mx-auto py-3 px-10 text-lg">
                 <LogIn size={20} strokeWidth={2.5} />
@@ -85,7 +92,7 @@ export default function App() {
               </div>
               <div>
                 <p className="font-bold text-dark uppercase tracking-tight">Painel Administrativo</p>
-                <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-widest leading-none">Sessão Segura • WYMD Social</p>
+                <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-widest leading-none">Sessão Segura • Social</p>
               </div>
             </div>
             <button 
@@ -119,14 +126,15 @@ export default function App() {
       {/* Footer Decoration */}
       <footer className="mt-24 border-t border-zinc-200 p-16 bg-white relative overflow-hidden">
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-center gap-12">
-          <div className="logo text-4xl">
-            <b>WYMD</b><span>Social</span>
+          <div className="flex items-center gap-2">
+            <Logo className="h-7" />
+            <span className="logo text-xl font-display uppercase tracking-tight text-accent">Social</span>
           </div>
           <div className="flex flex-wrap justify-center gap-12 font-bold uppercase text-[11px] tracking-[0.2em] text-zinc-300">
             <span className="hover:text-primary cursor-pointer transition-colors">CONEXÃO</span>
             <span className="hover:text-accent cursor-pointer transition-colors">INOVAÇÃO</span>
             <span className="hover:text-success cursor-pointer transition-colors">SUPORTE</span>
-            <span className="text-zinc-200">© 2026 WYMDTEC</span>
+            <span className="text-zinc-200">© 2026</span>
           </div>
         </div>
       </footer>
