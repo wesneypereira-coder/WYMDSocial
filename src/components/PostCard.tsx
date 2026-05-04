@@ -16,10 +16,11 @@ import {
   orderBy,
   serverTimestamp 
 } from 'firebase/firestore';
-import { Heart, MessageSquare, Send, Trash2, Share2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Heart, MessageSquare, Send, Trash2, Share2, ChevronLeft, ChevronRight, Edit3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/error-handler';
+import EditPost from './EditPost';
 
 interface PostCardProps {
   post: Post;
@@ -32,6 +33,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [newComment, setNewComment] = useState('');
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [user] = useAuthState(auth);
   const isAdmin = user?.email?.toLowerCase() === 'wesneypereira@gmail.com';
@@ -149,6 +151,12 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
     setCurrentMediaIndex((prev) => (prev - 1 + mediaList.length) % mediaList.length);
   };
 
+  const getYouTubeId = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
   const isLiked = user && likes.includes(user.uid);
 
   return (
@@ -172,42 +180,52 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
         
         <div className="flex items-center gap-2">
           {isAdmin && (
-            <div className="flex items-center">
-              <AnimatePresence mode="wait">
-                {isDeleting ? (
-                  <motion.div 
-                    key="confirm"
-                    initial={{ opacity: 0, x: 10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 10 }}
-                    className="flex items-center gap-2"
-                  >
-                    <button 
-                      onClick={deletePost}
-                      className="text-[10px] font-bold uppercase bg-red-500 text-white px-3 py-1.5 rounded-lg shadow-lg shadow-red-500/20 hover:bg-red-600 transition-colors"
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setIsEditing(true)} 
+                className="text-zinc-300 hover:text-primary transition-colors p-2"
+                title="Editar postagem"
+              >
+                <Edit3 size={18} />
+              </button>
+              
+              <div className="flex items-center">
+                <AnimatePresence mode="wait">
+                  {isDeleting ? (
+                    <motion.div 
+                      key="confirm"
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 10 }}
+                      className="flex items-center gap-2"
                     >
-                      Excluir?
-                    </button>
-                    <button 
-                      onClick={() => setIsDeleting(false)}
-                      className="text-[10px] font-bold uppercase bg-zinc-100 text-zinc-500 px-3 py-1.5 rounded-lg hover:bg-zinc-200 transition-colors"
+                      <button 
+                        onClick={deletePost}
+                        className="text-[10px] font-bold uppercase bg-red-500 text-white px-3 py-1.5 rounded-lg shadow-lg shadow-red-500/20 hover:bg-red-600 transition-colors"
+                      >
+                        Excluir?
+                      </button>
+                      <button 
+                        onClick={() => setIsDeleting(false)}
+                        className="text-[10px] font-bold uppercase bg-zinc-100 text-zinc-500 px-3 py-1.5 rounded-lg hover:bg-zinc-200 transition-colors"
+                      >
+                        Não
+                      </button>
+                    </motion.div>
+                  ) : (
+                    <motion.button 
+                      key="trash"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setIsDeleting(true)} 
+                      className="text-zinc-300 hover:text-red-500 transition-colors p-2"
                     >
-                      Não
-                    </button>
-                  </motion.div>
-                ) : (
-                  <motion.button 
-                    key="trash"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    onClick={() => setIsDeleting(true)} 
-                    className="text-zinc-300 hover:text-red-500 transition-colors p-2"
-                  >
-                    <Trash2 size={18} />
-                  </motion.button>
-                )}
-              </AnimatePresence>
+                      <Trash2 size={18} />
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           )}
         </div>
@@ -234,6 +252,12 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {isEditing && (
+          <EditPost post={post} onClose={() => setIsEditing(false)} />
+        )}
+      </AnimatePresence>
+
       {/* Media Content */}
       <div className="aspect-video relative flex items-center justify-center overflow-hidden bg-zinc-100 group/media">
         <AnimatePresence mode="wait">
@@ -253,12 +277,27 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <video 
-                  src={mediaList[currentMediaIndex].url} 
-                  className="w-full h-full object-cover"
-                  controls
-                  playsInline
-                />
+                (() => {
+                  const ytId = getYouTubeId(mediaList[currentMediaIndex].url);
+                  return ytId ? (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}`}
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    ></iframe>
+                  ) : (
+                    <video 
+                      src={mediaList[currentMediaIndex].url} 
+                      className="w-full h-full object-cover"
+                      controls
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                    />
+                  );
+                })()
               )}
             </motion.div>
           )}

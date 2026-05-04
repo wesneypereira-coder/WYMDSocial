@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
-import { db, auth } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { X, Camera, UploadCloud, Plus, Trash2, Image as ImageIcon, Film } from 'lucide-react';
+import { db } from '../lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { X, Edit3, Save, Plus, Trash2, Image as ImageIcon, Film } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MediaItem } from '../types';
+import { Post, MediaItem } from '../types';
 import { handleFirestoreError, OperationType } from '../lib/error-handler';
 
-export default function CreatePost({ onClose }: { onClose: () => void }) {
-  const [media, setMedia] = useState<MediaItem[]>([{ url: '', type: 'image' }]);
-  const [caption, setCaption] = useState('');
+export default function EditPost({ post, onClose }: { post: Post; onClose: () => void }) {
+  const [media, setMedia] = useState<MediaItem[]>(post.media || [{ url: '', type: 'image' }]);
+  const [caption, setCaption] = useState(post.caption);
   const [loading, setLoading] = useState(false);
-  const user = auth.currentUser;
 
   const addMediaField = () => {
     if (media.length < 10) {
@@ -33,29 +32,25 @@ export default function CreatePost({ onClose }: { onClose: () => void }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const validMedia = media.filter(m => m.url.trim() !== '');
-    if (!user || validMedia.length === 0 || !caption.trim()) return;
+    if (validMedia.length === 0 || !caption.trim()) return;
 
     setLoading(true);
     try {
-      await addDoc(collection(db, 'posts'), {
-        ownerId: user.uid,
-        ownerEmail: user.email,
+      const postRef = doc(db, 'posts', post.id);
+      await updateDoc(postRef, {
         media: validMedia,
-        caption: caption.trim(),
-        createdAt: serverTimestamp(),
-        likesCount: 0,
-        commentsCount: 0
+        caption: caption.trim()
       });
       onClose();
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'posts');
+      handleFirestoreError(error, OperationType.UPDATE, `posts/${post.id}`);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-app-bg/60 backdrop-blur-md overflow-y-auto pt-20 pb-10">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-app-bg/60 backdrop-blur-md overflow-y-auto pt-20 pb-10">
       <motion.div 
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -69,8 +64,8 @@ export default function CreatePost({ onClose }: { onClose: () => void }) {
         </button>
 
         <h2 className="text-3xl font-display font-black uppercase mb-8 flex items-center gap-3 tracking-tighter">
-          <Camera size={32} className="text-primary" />
-          Nova Postagem
+          <Edit3 size={32} className="text-primary" />
+          Editar Publicação
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-8">
@@ -158,12 +153,12 @@ export default function CreatePost({ onClose }: { onClose: () => void }) {
             {loading ? (
               <span className="flex items-center gap-2">
                 <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                PUBLICANDO...
+                SALVANDO...
               </span>
             ) : (
               <>
-                <UploadCloud size={24} className="group-hover:-translate-y-1 transition-transform" />
-                PUBLICAR AGORA
+                <Save size={24} className="group-hover:scale-110 transition-transform" />
+                SALVAR ALTERAÇÕES
               </>
             )}
           </button>
