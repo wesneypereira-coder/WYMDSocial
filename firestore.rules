@@ -71,14 +71,17 @@ service cloud.firestore {
       // --- Comments ---
       match /comments/{commentId} {
         function isValidComment(data) {
-          return data.userId == request.auth.uid && 
-                 data.postId == postId && 
+          return data.postId == postId && 
                  data.content is string && data.content.size() <= 500 &&
                  data.createdAt is timestamp;
         }
         allow read: if true; // PUBLIC READ ACCESS
-        allow create: if isSignedIn() && isValidComment(incoming()) && incoming().createdAt == request.time;
-        allow delete: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+        allow create: if isSignedIn() && isValidComment(incoming()) && 
+                        incoming().userId == request.auth.uid &&
+                        incoming().createdAt == request.time;
+        allow update: if isAdmin() && isValidComment(incoming()) && 
+                        incoming().userId == existing().userId;
+        allow delete: if isAdmin();
       }
     }
   }

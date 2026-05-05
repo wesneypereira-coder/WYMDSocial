@@ -38,4 +38,5 @@ export interface Comment {
   postId: string;
   content: string;
   createdAt: Timestamp;
+  isPinned?: boolean;
 }

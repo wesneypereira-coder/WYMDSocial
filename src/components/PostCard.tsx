@@ -16,7 +16,7 @@ import {
   orderBy,
   serverTimestamp 
 } from 'firebase/firestore';
-import { Heart, MessageSquare, Send, Trash2, Share2, ChevronLeft, ChevronRight, Edit3 } from 'lucide-react';
+import { Heart, MessageSquare, Send, Trash2, Share2, ChevronLeft, ChevronRight, Edit3, Pin, PinOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/error-handler';
@@ -33,6 +33,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [newComment, setNewComment] = useState('');
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [user] = useAuthState(auth);
@@ -157,7 +158,51 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
     return (match && match[2].length === 11) ? match[2] : null;
   };
 
+  const handleDeleteComment = async (commentId: string) => {
+    if (!isAdmin) return;
+    
+    try {
+      await deleteDoc(doc(db, 'posts', post.id, 'comments', commentId));
+      await updateDoc(doc(db, 'posts', post.id), { commentsCount: increment(-1) });
+      setDeletingCommentId(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `posts/${post.id}/comments/${commentId}`);
+    }
+  };
+
+  const togglePinComment = async (comment: Comment) => {
+    if (!isAdmin) return;
+    
+    try {
+      const commentRef = doc(db, 'posts', post.id, 'comments', comment.id);
+      
+      // Unpin existing pinned comment if any (only if we're pinning a new one)
+      if (!comment.isPinned) {
+        const currentlyPinned = comments.find(c => c.isPinned);
+        if (currentlyPinned) {
+          await updateDoc(doc(db, 'posts', post.id, 'comments', currentlyPinned.id), { isPinned: false });
+        }
+      }
+      
+      await updateDoc(commentRef, { isPinned: !comment.isPinned });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `posts/${post.id}/comments/${comment.id}`);
+    }
+  };
+
   const isLiked = user && likes.includes(user.uid);
+
+  // Determine the highlight comment (pinned or latest)
+  const pinnedComment = comments.find(c => c.isPinned);
+  const latestComment = comments[0]; // Already ordered by createdAt desc
+  const highlightComment = pinnedComment || latestComment;
+
+  // Sorted comments for list: Pinned first, then by date
+  const sortedComments = [...comments].sort((a, b) => {
+    if (a.isPinned) return -1;
+    if (b.isPinned) return 1;
+    return 0; // Keep existing order (which is desc date)
+  });
 
   return (
     <motion.div 
@@ -377,6 +422,29 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
           {post.caption}
         </p>
 
+        {/* Comment Preview (Highlight) */}
+        {highlightComment && (
+          <div className="mt-6 p-4 bg-zinc-50 border border-zinc-100 rounded-2xl">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                {highlightComment.isPinned ? "PUBLICADO FIXADO" : "DESTAQUE RECENTE"}
+              </span>
+              {highlightComment.isPinned && <Pin size={10} className="text-primary fill-primary" />}
+            </div>
+            <div className="flex gap-3">
+              <img 
+                src={highlightComment.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${highlightComment.userId}`} 
+                className="w-8 h-8 rounded-xl border border-zinc-200"
+                alt="User"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-[11px] text-dark uppercase tracking-tight truncate">{highlightComment.displayName}</p>
+                <p className="text-sm text-zinc-500 font-medium line-clamp-2">{highlightComment.content}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Comments Section */}
         <AnimatePresence>
           {showComments && (
@@ -387,24 +455,78 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
               className="overflow-hidden border-t border-zinc-50 mt-6 pt-6"
             >
               <div className="max-h-80 overflow-y-auto mb-6 space-y-4 pr-1 custom-scrollbar">
-                {comments.length === 0 ? (
+                {sortedComments.length === 0 ? (
                   <div className="py-8 text-center bg-zinc-50 rounded-2xl border border-dashed border-zinc-200">
                     <p className="text-sm font-bold text-zinc-300 uppercase tracking-widest">Nada por aqui ainda...</p>
                   </div>
                 ) : (
-                  comments.map((comment) => (
-                    <div key={comment.id} className="bg-zinc-50/50 p-4 rounded-2xl border border-zinc-100 flex gap-4">
+                  sortedComments.map((comment) => (
+                    <div key={comment.id} className={cn(
+                      "p-4 rounded-2xl border transition-all flex gap-4 relative",
+                      comment.isPinned ? "bg-primary/5 border-primary/20 shadow-sm" : "bg-zinc-50/50 border-zinc-100"
+                    )}>
+                      {comment.isPinned && (
+                        <div className="absolute -top-2.5 right-4 bg-primary text-white text-[8px] font-black uppercase tracking-[0.2em] py-1 px-2 rounded-full shadow-lg flex items-center gap-1">
+                          <Pin size={8} className="fill-white" /> FIXADO
+                        </div>
+                      )}
                       <img 
                         src={comment.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${comment.userId}`} 
                         className="w-9 h-9 rounded-xl border border-zinc-200"
                         alt="User"
                       />
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start mb-1">
-                          <p className="font-bold text-xs text-dark uppercase tracking-tight">{comment.displayName}</p>
-                          <span className="text-[10px] text-zinc-400 font-bold uppercase">{comment.createdAt?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          <p className="font-bold text-xs text-dark uppercase tracking-tight truncate pr-4">{comment.displayName}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-zinc-400 font-bold uppercase shrink-0">
+                              {comment.createdAt?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            
+                            {isAdmin && (
+                              <div className="flex items-center gap-1 ml-1">
+                                <button 
+                                  onClick={() => togglePinComment(comment)}
+                                  className={cn(
+                                    "p-1.5 rounded-lg transition-colors",
+                                    comment.isPinned ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-zinc-300 hover:text-primary hover:bg-zinc-100"
+                                  )}
+                                  title={comment.isPinned ? "Desafixar" : "Fixar no topo"}
+                                >
+                                  {comment.isPinned ? <PinOff size={14} /> : <Pin size={14} />}
+                                </button>
+                                
+                                <div className="relative">
+                                  {deletingCommentId === comment.id ? (
+                                    <div className="flex items-center gap-1 animate-in fade-in slide-in-from-right-2">
+                                      <button 
+                                        onClick={() => handleDeleteComment(comment.id)}
+                                        className="bg-red-500 text-white text-[8px] font-bold uppercase py-1 px-2 rounded-lg hover:bg-red-600"
+                                      >
+                                        Sim
+                                      </button>
+                                      <button 
+                                        onClick={() => setDeletingCommentId(null)}
+                                        className="bg-zinc-200 text-zinc-500 text-[8px] font-bold uppercase py-1 px-2 rounded-lg hover:bg-zinc-300"
+                                      >
+                                        Não
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button 
+                                      onClick={() => setDeletingCommentId(comment.id)}
+                                      className="p-1.5 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-zinc-100 transition-colors"
+                                      title="Excluir"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-sm text-zinc-600 font-medium leading-relaxed">{comment.content}</p>
+                        <p className="text-sm text-zinc-600 font-medium leading-relaxed break-words">{comment.content}</p>
                       </div>
                     </div>
                   ))
