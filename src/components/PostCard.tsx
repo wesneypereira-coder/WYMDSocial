@@ -32,6 +32,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [showComments, setShowComments] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -40,6 +41,37 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const isAdmin = user?.email?.toLowerCase() === 'wesneypereira@gmail.com';
 
   const mediaList = post.media || [];
+
+  useEffect(() => {
+    if (mediaList.length <= 1 || isPaused) return;
+
+    const timer = setInterval(() => {
+      // Pause slideshow if current media is a video to avoid interruption
+      if (currentMediaIndex < mediaList.length && mediaList[currentMediaIndex].type === 'video') return;
+      
+      setCurrentMediaIndex((prev) => (prev + 1) % mediaList.length);
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [mediaList.length, isPaused, currentMediaIndex]);
+
+  const nextMedia = () => {
+    setCurrentMediaIndex((prev) => (prev + 1) % mediaList.length);
+    setIsPaused(true);
+  };
+
+  const prevMedia = () => {
+    setCurrentMediaIndex((prev) => (prev - 1 + mediaList.length) % mediaList.length);
+    setIsPaused(true);
+  };
+
+  const handleDragEnd = (event: any, info: any) => {
+    if (info.offset.x > 50) {
+      prevMedia();
+    } else if (info.offset.x < -50) {
+      nextMedia();
+    }
+  };
 
   useEffect(() => {
     const likesRef = collection(db, 'posts', post.id, 'likes');
@@ -142,14 +174,6 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `posts/${post.id}`);
     }
-  };
-
-  const nextMedia = () => {
-    setCurrentMediaIndex((prev) => (prev + 1) % mediaList.length);
-  };
-
-  const prevMedia = () => {
-    setCurrentMediaIndex((prev) => (prev - 1 + mediaList.length) % mediaList.length);
   };
 
   const getYouTubeId = (url: string) => {
@@ -304,45 +328,55 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
       </AnimatePresence>
 
       {/* Media Content */}
-      <div className="aspect-video relative flex items-center justify-center overflow-hidden bg-zinc-100 group/media">
+      <div 
+        className="aspect-video relative flex items-center justify-center overflow-hidden bg-zinc-100 group/media"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+      >
         <AnimatePresence mode="wait">
           {mediaList.length > 0 && (
             <motion.div 
               key={currentMediaIndex}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="w-full h-full"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              onDragEnd={handleDragEnd}
+              className="w-full h-full cursor-grab active:cursor-grabbing"
             >
               {mediaList[currentMediaIndex].type === 'image' ? (
                 <img 
                   src={mediaList[currentMediaIndex].url} 
                   alt={post.caption} 
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover pointer-events-none"
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                (() => {
-                  const ytId = getYouTubeId(mediaList[currentMediaIndex].url);
-                  return ytId ? (
-                    <iframe
-                      src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}`}
-                      className="w-full h-full border-0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    ></iframe>
-                  ) : (
-                    <video 
-                      src={mediaList[currentMediaIndex].url} 
-                      className="w-full h-full object-cover"
-                      controls
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                    />
-                  );
-                })()
+                <div className="w-full h-full">
+                  {(() => {
+                    const ytId = getYouTubeId(mediaList[currentMediaIndex].url);
+                    return ytId ? (
+                      <iframe
+                        src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}`}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      ></iframe>
+                    ) : (
+                      <video 
+                        src={mediaList[currentMediaIndex].url} 
+                        className="w-full h-full object-cover"
+                        controls
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                      />
+                    );
+                  })()}
+                </div>
               )}
             </motion.div>
           )}
